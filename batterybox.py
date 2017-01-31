@@ -18,7 +18,7 @@ GPIO.setup(23,GPIO.IN)	#Bank 2, done
 
 left_button = 0			#Corresponds between the position of the button on the GUI and the battery in the bank
 left_complete = False	#True if the left bank has charged all batteries so far
-middle_button = 4		#Starts at 12 to indicate that no bank is selected yet
+middle_button = 4
 middle_complete = False	#True if the middle bank has charged all batteries so far
 right_button = 8
 right_complete = False	#True if the right bank has charged all batteries so far
@@ -28,10 +28,10 @@ ql = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with 
 qm = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with during 
 qr = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with during 
 
-def reset_wait():	#Runs in another thread after all banks are finished, resets after timeout
+def reset_wait():		#Runs in another thread after all banks are finished, resets after timeout
 	global left_button, left_complete, middle_button, middle_complete, right_button, right_complete
-	reset = True	#If timeout does not get interrupted, start from the beginning
-	for i in range(600):	#Wait for 10 minutes
+	reset = True		#If timeout does not get interrupted, start from the beginning
+	for i in range(600):#Wait for 10 minutes
 		try:
 			qw.get(timeout=1)
 			reset = False
@@ -46,8 +46,8 @@ def reset_wait():	#Runs in another thread after all banks are finished, resets a
 		right_button = 8
 		right_complete = False
 		
-def left_wait():	#Runs in another thread after transitioning to the next battery, skips to another battery if no battery is found, left bank
-	skip = True		#If timout does not get interrupted, skip to next battery
+def left_wait():		#Runs in another thread after transitioning to the next battery, skips to another battery if no battery is found, left bank
+	skip = True			#If timout does not get interrupted, skip to next battery
 	for i in range(15):	#Wait for 15 seconds
 		try:
 			ql.get(timeout=1)
@@ -58,8 +58,8 @@ def left_wait():	#Runs in another thread after transitioning to the next battery
 	if skip:
 		gui.button_missing(left_button)
 		
-def middle_wait():	#Runs in another thread after transitioning to the next battery, skips to another battery if no battery is found, middle bank
-	skip = True		#If timout does not get interrupted, skip to next battery
+def middle_wait():		#Runs in another thread after transitioning to the next battery, skips to another battery if no battery is found, middle bank
+	skip = True			#If timout does not get interrupted, skip to next battery
 	for i in range(15):	#Wait for 15 seconds
 		try:
 			qm.get(timeout=1)
@@ -70,8 +70,8 @@ def middle_wait():	#Runs in another thread after transitioning to the next batte
 	if skip:
 		gui.button_missing(middle_button)
 		
-def right_wait():	#Runs in another thread after transitioning to the next battery, skips to another battery if no battery is found, right bank
-	skip = True		#If timout does not get interrupted, skip to next battery
+def right_wait():		#Runs in another thread after transitioning to the next battery, skips to another battery if no battery is found, right bank
+	skip = True			#If timout does not get interrupted, skip to next battery
 	for i in range(15):	#Wait for 15 seconds
 		try:
 			qr.get(timeout=1)
@@ -81,10 +81,9 @@ def right_wait():	#Runs in another thread after transitioning to the next batter
 			pass	#Do nothing
 	if skip:
 		gui.button_missing(right_button)
-	
-#ser = serial.serial_for_url("/dev/ttyUSB0")
 
 class USB:	#Handles sending signals through usb to the charger switch
+	#ser = serial.serial_for_url("/dev/ttyUSB0")
 	ser = serial.Serial("/dev/ttyUSB0",9600,8,"N",1,timeout=5)	#usb location,baud rate, data bits, no parity, stop bit
 	'''
 	def switch_board(self,arg):
