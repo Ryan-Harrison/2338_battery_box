@@ -23,14 +23,17 @@ middle_complete = False	#True if the middle bank has charged all batteries so fa
 right_button = 8
 right_complete = False	#True if the right bank has charged all batteries so far
 
-q = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with
+qw = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with during reset_wait
+ql = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with during 
+qm = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with during 
+qr = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with during 
 
 def reset_wait():	#Runs in another thread after all banks are finished, resets after timeout
 	global left_button, left_complete, middle_button, middle_complete, right_button, right_complete
 	reset = True	#If timeout does not get interrupted, start from the beginning
 	for i in range(600):	#Wait for 10 minutes
 		try:
-			q.get(timeout=1)
+			qw.get(timeout=1)
 			reset = False
 			break
 		except queue.Empty:
@@ -42,6 +45,42 @@ def reset_wait():	#Runs in another thread after all banks are finished, resets a
 		middle_complete = False	
 		right_button = 8
 		right_complete = False
+		
+def left_wait():	#Runs in another thread after transitioning to the next battery, skips to another battery if no battery is found, left bank
+	skip = True		#If timout does not get interrupted, skip to next battery
+	for i in range(15):	#Wait for 15 seconds
+		try:
+			ql.get(timeout=1)
+			skip = False
+			break
+		except queue.Empty:
+			pass	#Do nothing
+	if skip:
+		gui.button_missing(left_button)
+		
+def middle_wait():	#Runs in another thread after transitioning to the next battery, skips to another battery if no battery is found, middle bank
+	skip = True		#If timout does not get interrupted, skip to next battery
+	for i in range(15):	#Wait for 15 seconds
+		try:
+			qm.get(timeout=1)
+			skip = False
+			break
+		except queue.Empty:
+			pass	#Do nothing
+	if skip:
+		gui.button_missing(middle_button)
+		
+def right_wait():	#Runs in another thread after transitioning to the next battery, skips to another battery if no battery is found, right bank
+	skip = True		#If timout does not get interrupted, skip to next battery
+	for i in range(15):	#Wait for 15 seconds
+		try:
+			qr.get(timeout=1)
+			skip = False
+			break
+		except queue.Empty:
+			pass	#Do nothing
+	if skip:
+		gui.button_missing(right_button)
 	
 #ser = serial.serial_for_url("/dev/ttyUSB0")
 
@@ -94,7 +133,7 @@ usb = USB()	#Handles sending signals through usb to the charger switch
 def button_click(button):	#Turn button purple and switch to charging that bank
 	global left_button, left_complete, middle_button, middle_complete, right_button, right_complete
 	if left_complete and middle_complete and right_complete:
-		q.put(None)	#Prematurely stops countdown after all batteries are charged
+		qw.put(None)	#Prematurely stops countdown after all batteries are charged
 	gui.button_list[button]["bg"] = "purple"
 	if button < 4:	#Left buttons
 		#gui.button_list[left_button]["bg"] = "yellow"
@@ -201,45 +240,65 @@ class GUI(tk.Frame):
 		'''
 	
 	#def button_click(self,button):	#Turn button purple and switch to charging that bank
-
 		
 	def button_charging(self,button=0):
 		self.button_list[button]["bg"] = "yellow"
 		
-	def button_done(self,button=0):
-		self.button_list[button]["bg"] = "green"
+	def button_switch(self,button=0):
 		usb.switch_off(button)
-		if button < 3 or (button > 3 and button < 7) or (button > 7 and button < 11):
+		if button < 3:
 			usb.switch_on(button+1)
+			th = threading.Thread(target=left_wait)
+			th.start()
+		elif (button > 3 and button < 7):
+			usb.switch_on(button+1)
+			th = threading.Thread(target=middle_wait)
+			th.start()
+		elif (button > 7 and button < 11):
+			usb.switch_on(button+1)
+			th = threading.Thread(target=right_wait)
+			th.start()
+			
 		if left_complete and middle_complete and right_complete:
 			th = threading.Thread(target=reset_wait)
 			th.start()
+		
+	def button_done(self,button=0):
+		self.button_list[button]["bg"] = "green"
+		self.button_switch(button)
+			
+	def button_missing(self,button=0):
+		self.button_list[button["bg"] = "gray"
+		self.button_switch(button)
 			
 root = tk.Tk()
 gui = GUI(master=root)
 gui.master.title('2338 Battery Charger')
 	
-def gpio_callback(channel):
+def gpio_callback(channel):	#Called whenever an LED lights up, parses which LED lit and responds accordingly
 	global left_button, left_complete, middle_button, middle_complete, right_button, right_complete
-	if channel == 24:	#Bank 0, charging
+	if channel == 24:	#Bank 0 (left bank), charging
 		gui.button_charging(button=left_button)
-	elif channel == 25:	#Bank 0, done
+		ql.put(None)	#Interrupts waiting for left battery, shows that there is indeed a battery present
+	elif channel == 25:	#Bank 0 (left bank), done
 		gui.button_done(button=left_button)
 		if left_button < 3:
 			left_button += 1	#Increment button/battery position
 		else:
 			left_complete = True
-	elif channel == 27:	#Bank 1, charging
+	elif channel == 27:	#Bank 1 (middle bank), charging
 		gui.button_charging(button=middle_button)
-	elif channel == 22:	#Bank 1, done
+		qm.put(None)	#Interrupts waiting for middle battery, shows that there is indeed a battery present
+	elif channel == 22:	#Bank 1 (middle bank), done
 		gui.button_done(button=middle_button)
 		if middle_button < 7:
 			middle_button += 1
 		else:
 			middle_complete = True
-	elif channel == 18:	#Bank 2, charging
+	elif channel == 18:	#Bank 2 (right bank), charging
 		gui.button_charging(button=right_button)
-	elif channel == 23:	#Bank 2, done
+		qr.put(None)	#Interrupts waiting for right battery, shows that there is indeed a battery present
+	elif channel == 23:	#Bank 2 (right bank), done
 		gui.button_done(button=right_button)
 		if right_button < 11:
 			right_button += 1
@@ -260,7 +319,20 @@ def run():
 	GPIO.add_event_detect(23, GPIO.RISING) #Bank 2, done
 	GPIO.add_event_callback(23, partial(gpio_callback,23))
 	
-	usb.switch_on(left_button)
+	usb.switch_off(0)	#Turn off all banks for hard reset
+	usb.switch_off(1)
+	usb.switch_off(2)
+	usb.switch_off(3)
+	usb.switch_off(4)
+	usb.switch_off(5)
+	usb.switch_off(6)
+	usb.switch_off(7)
+	usb.switch_off(8)
+	usb.switch_off(9)
+	usb.switch_off(10)
+	usb.switch_off(11)
+	
+	usb.switch_on(left_button)	#Start from the top
 	usb.switch_on(middle_button)
 	usb.switch_on(right_button)
 	
