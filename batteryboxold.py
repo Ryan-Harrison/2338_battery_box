@@ -5,7 +5,6 @@ from functools import partial
 import RPi.GPIO as GPIO
 import threading
 import queue
-from enum import Enum
 #import time
 
 
@@ -24,50 +23,6 @@ middle_complete = False	#True if the middle bank has charged all batteries so fa
 right_button = 8
 right_complete = False	#True if the right bank has charged all batteries so far
 
-q = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with during the run_timer
-
-class Bank_State(Enum):
-	NONE = 0
-	LEFT = 1
-	MIDDLE = 2
-	RIGHT = 3
-	
-class Battery_State(Enum):
-	NONE = 0
-	CHARGING = 1
-	CHARGED = 2
-
-def run_timer():
-	#global left_button, left_complete, middle_button, middle_complete, right_button, right_complete
-	state = Bank_State.LEFT
-	left_bat = Battery_State.NONE
-	middle_bat = Battery_State.NONE
-	right_bat= Battery_State.NONE
-	cycle = True
-	while(True):
-		for i in range(60):	#Wait for 1 minute
-			try:
-				q.get(timeout=1)
-				cycle = False
-				break
-			except queue.Empty:
-				pass	#Do nothing
-		if cycle:
-			if state == Bank_State.LEFT:
-				if GPIO.input(24) and (left_bat == Battery_State.NONE or left_bat == Battery_State.CHARGED):
-					gpio_callback(24)
-					left_bat = Battery_State.CHARGING
-				elif GPIO.input(25) and not left_complete:
-					gpio_callback(25)
-					left_bat = Battery_State.CHARGED
-				elif not (GPIO.input(24) or GPIO.input(25))
-					gui.button_missing(left_button)
-					left_bat = Battery_State.NONE
-				state = Bank_State.MIDDLE
-			
-				
-
-'''
 qw = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with during reset_wait
 ql = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with during 
 qm = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with during 
@@ -126,7 +81,7 @@ def right_wait():		#Runs in another thread after transitioning to the next batte
 			pass	#Do nothing
 	if skip:
 		gui.button_missing(right_button)
-'''
+
 class USB:	#Handles sending signals through usb to the charger switch
 	#ser = serial.serial_for_url("/dev/ttyUSB0")
 	ser = serial.Serial("/dev/ttyUSB0",9600,8,"N",1,timeout=5)	#usb location,baud rate, data bits, no parity, stop bit
@@ -350,7 +305,6 @@ def gpio_callback(channel):	#Called whenever an LED lights up, parses which LED 
 			right_complete = True
 			
 def run():
-	'''
 	GPIO.add_event_detect(24, GPIO.RISING) #Bank 0, charging
 	GPIO.add_event_callback(24, partial(gpio_callback,24))
 	GPIO.add_event_detect(25, GPIO.RISING) #Bank 0, done
@@ -363,7 +317,6 @@ def run():
 	GPIO.add_event_callback(18, partial(gpio_callback,18))
 	GPIO.add_event_detect(23, GPIO.RISING) #Bank 2, done
 	GPIO.add_event_callback(23, partial(gpio_callback,23))
-	'''
 	
 	usb.switch_off(0)	#Turn off all banks for hard reset
 	usb.switch_off(1)
