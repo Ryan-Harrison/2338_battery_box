@@ -6,7 +6,6 @@ import RPi.GPIO as GPIO
 import threading
 import queue
 from enum import Enum
-#import time
 
 
 GPIO.setmode(GPIO.BCM)
@@ -38,34 +37,79 @@ class Battery_State(Enum):
 	CHARGED = 2
 
 def run_timer():
-	#global left_button, left_complete, middle_button, middle_complete, right_button, right_complete
+	global left_button, left_complete, middle_button, middle_complete, right_button, right_complete
 	state = Bank_State.LEFT
 	left_bat = Battery_State.NONE
 	middle_bat = Battery_State.NONE
 	right_bat= Battery_State.NONE
 	cycle = True
 	while(True):
-		for i in range(60):	#Wait for 1 minute
-			try:
-				q.get(timeout=1)
-				cycle = False
-				break
-			except queue.Empty:
-				pass	#Do nothing
-		if cycle:
-			if state == Bank_State.LEFT:
-				if GPIO.input(24) and (left_bat == Battery_State.NONE or left_bat == Battery_State.CHARGED):
-					gpio_callback(24)
-					left_bat = Battery_State.CHARGING
-				elif GPIO.input(25) and not left_complete:
-					gpio_callback(25)
-					left_bat = Battery_State.CHARGED
-				elif not (GPIO.input(24) or GPIO.input(25))
-					gui.button_missing(left_button)
-					left_bat = Battery_State.NONE
-				state = Bank_State.MIDDLE
+		while(not (left_complete and middle_complete and right_complete)):
+			cycle = True
+			for i in range(15):	#Wait for 15 seconds
+				try:
+					q.get(timeout=1)
+					cycle = False
+					break
+				except queue.Empty:
+					pass	#Do nothing
+			if cycle:
+				if state == Bank_State.LEFT:
+					if GPIO.input(24) and not left_bat == Battery_State.CHARGING:
+						gpio_callback(24)
+						left_bat = Battery_State.CHARGING
+					elif GPIO.input(25) and not left_complete:
+						gpio_callback(25)
+						left_bat = Battery_State.CHARGED
+					elif not (GPIO.input(24) or GPIO.input(25))
+						gui.button_missing(left_button)
+						left_bat = Battery_State.NONE
+					state = Bank_State.MIDDLE
+				elif state == Bank_State.MIDDLE:
+					if GPIO.input(27) and not middle_bat == Battery_State.CHARGING:
+						gpio_callback(27)
+						middle_bat = Battery_State.CHARGING
+					elif GPIO.input(22) and not middle_complete:
+						gpio_callback(22)
+						middle_bat = Battery_State.CHARGED
+					elif not (GPIO.input(27) or GPIO.input(22))
+						gui.button_missing(middle_button)
+						middle_bat = Battery_State.NONE
+					state = Bank_State.RIGHT
+				elif state == Bank_State.RIGHT:
+					if GPIO.input(18) and not right_bat == Battery_State.CHARGING:
+						gpio_callback(18)
+						right_bat = Battery_State.CHARGING
+					elif GPIO.input(23) and not right_complete:
+						gpio_callback(23)
+						right_bat = Battery_State.CHARGED
+					elif not (GPIO.input(18) or GPIO.input(23)):
+						gui.button_missing(right_button)
+						right_bat = Battery_State.NONE
+					state = Bank_State.LEFT
+			else:
+				state = Bank_State.LEFT
+				left_bat = Battery_State.NONE
+				middle_bat = Battery_State.NONE
+				right_bat = Battery_State.NONE
+		while(left_complete and middle_complete and right_complete):
+			cycle = True
+			for i in range(600):	#Wait for 10 minutes
+				try:
+					q.get(timeout=1)
+					cycle = False
+					break
+				except queue.Empty:
+					pass	#Do nothing
+			state = Bank_State.LEFT
+			left_complete = False
+			middle_complete = False
+			right_complete = False
+			if cycle:
+				left_button = 0
+				middle_button = 4
+				right_button = 8
 			
-				
 
 '''
 qw = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with during reset_wait
@@ -176,27 +220,25 @@ usb = USB()	#Handles sending signals through usb to the charger switch
 
 def button_click(button):	#Turn button purple and switch to charging that bank
 	global left_button, left_complete, middle_button, middle_complete, right_button, right_complete
+	'''
 	if left_complete and middle_complete and right_complete:
 		qw.put(None)	#Prematurely stops countdown after all batteries are charged
+	'''
 	gui.button_list[button]["bg"] = "purple"
 	if button < 4:	#Left buttons
-		#gui.button_list[left_button]["bg"] = "yellow"
 		usb.switch_off(left_button)
 		left_button = button
-		usb.switch_on(button)
 		left_complete = False
 	elif button > 3 and button < 8:	#Middle buttons
-		#gui.button_list[middle_button]["bg"] = "yellow"
 		usb.switch_off(middle_button)
 		middle_button = button
-		usb.switch_on(button)
 		middle_complete = False
 	else:	#Right buttons
-		#gui.button_list[right_button]["bg"] = "yellow"
 		usb.switch_off(right_button)
 		right_button = button
-		usb.switch_on(button)
 		right_complete = False
+	usb.switch_on(button)
+	q.put(None)
 	
 class GUI(tk.Frame):
 	def __init__(self,master=None):
@@ -323,7 +365,7 @@ def gpio_callback(channel):	#Called whenever an LED lights up, parses which LED 
 	global left_button, left_complete, middle_button, middle_complete, right_button, right_complete
 	if channel == 24:	#Bank 0 (left bank), charging
 		gui.button_charging(button=left_button)
-		ql.put(None)	#Interrupts waiting for left battery, shows that there is indeed a battery present
+		#ql.put(None)	#Interrupts waiting for left battery, shows that there is indeed a battery present
 	elif channel == 25:	#Bank 0 (left bank), done
 		gui.button_done(button=left_button)
 		if left_button < 3:
@@ -332,7 +374,7 @@ def gpio_callback(channel):	#Called whenever an LED lights up, parses which LED 
 			left_complete = True
 	elif channel == 27:	#Bank 1 (middle bank), charging
 		gui.button_charging(button=middle_button)
-		qm.put(None)	#Interrupts waiting for middle battery, shows that there is indeed a battery present
+		#qm.put(None)	#Interrupts waiting for middle battery, shows that there is indeed a battery present
 	elif channel == 22:	#Bank 1 (middle bank), done
 		gui.button_done(button=middle_button)
 		if middle_button < 7:
@@ -341,7 +383,7 @@ def gpio_callback(channel):	#Called whenever an LED lights up, parses which LED 
 			middle_complete = True
 	elif channel == 18:	#Bank 2 (right bank), charging
 		gui.button_charging(button=right_button)
-		qr.put(None)	#Interrupts waiting for right battery, shows that there is indeed a battery present
+		#qr.put(None)	#Interrupts waiting for right battery, shows that there is indeed a battery present
 	elif channel == 23:	#Bank 2 (right bank), done
 		gui.button_done(button=right_button)
 		if right_button < 11:
