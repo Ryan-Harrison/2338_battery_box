@@ -7,13 +7,20 @@ import threading
 import queue
 from enum import Enum
 
+left_charging = 24		#GPIO address, change where necessary
+left_charged = 25
+middle_charging = 27
+middle_charged = 22
+right_charging = 18
+right_charged = 23
+
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(24,GPIO.IN)	#Bank 0, charging
-GPIO.setup(25,GPIO.IN)	#Bank 0, done
-GPIO.setup(27,GPIO.IN)	#Bank 1, charging
-GPIO.setup(22,GPIO.IN)	#Bank 1, done
-GPIO.setup(18,GPIO.IN)	#Bank 2, charging
-GPIO.setup(23,GPIO.IN)	#Bank 2, done
+GPIO.setup(left_charging,GPIO.IN)	#Bank 0, charging
+GPIO.setup(left_charged,GPIO.IN)	#Bank 0, done
+GPIO.setup(middle_charging,GPIO.IN)	#Bank 1, charging
+GPIO.setup(middle_charged,GPIO.IN)	#Bank 1, done
+GPIO.setup(right_charging,GPIO.IN)	#Bank 2, charging
+GPIO.setup(right_charged,GPIO.IN)	#Bank 2, done
 
 left_button = 0			#Corresponds between the position of the button on the GUI and the battery in the bank
 left_complete = False	#True if the left bank has charged all batteries so far
@@ -24,20 +31,22 @@ right_complete = False	#True if the right bank has charged all batteries so far
 
 q = queue.Queue()		#Used to interrupt timer in case the GUI is interacted with during the run_timer
 
-class Bank_State(Enum):	#States of checking banks
+class Bank(Enum):	#States of checking banks
 	NONE = 0
 	LEFT = 1
 	MIDDLE = 2
 	RIGHT = 3
 	
+	
 class Battery_State(Enum):	#States of battery charging
 	NONE = 0
 	CHARGING = 1
 	CHARGED = 2
+	
 
 def run_timer():
 	global left_button, left_complete, middle_button, middle_complete, right_button, right_complete
-	state = Bank_State.LEFT	#Start at the left bank
+	state = Bank.LEFT	#Start at the left bank
 	left_bat = Battery_State.NONE	#Assume no batteries exist until you've seen them
 	middle_bat = Battery_State.NONE
 	right_bat= Battery_State.NONE
@@ -56,53 +65,62 @@ def run_timer():
 					pass	#Do nothing
 					
 			if cycle:	#If the timer completed
-				if state == Bank_State.LEFT:	#Left bank
-					if GPIO.input(24) and not left_bat == Battery_State.CHARGING:	#If found charging, but wasn't already
-						gpio_callback(24)
+				if state == Bank.LEFT:	#Left bank
+					if GPIO.input(left_charging) and not left_bat == Battery_State.CHARGING:	#If found charging, but wasn't already
+						gpio_callback(left_charging)
 						left_bat = Battery_State.CHARGING
+						gui.bank_charging(state)
 						
-					elif GPIO.input(25) and not left_complete:	#If fully charged, but isn't the final battery in the bank
-						gpio_callback(25)
+					elif GPIO.input(left_charged) and not left_complete:	#If fully charged, but isn't the final battery in the bank
+						gpio_callback(left_charged)
 						left_bat = Battery_State.CHARGED
+						gui.bank_charged(state)
 						
-					elif not (GPIO.input(24) or GPIO.input(25)):#If neither LED turns on, battery isn't there
+					elif not (GPIO.input(left_charging) or GPIO.input(left_charged)):#If neither LED turns on, battery isn't there
 						gui.button_missing(left_button)
 						left_bat = Battery_State.NONE
+						gui.bank_nothing(state)
 						
-					state = Bank_State.MIDDLE	#Move to next bank
+					state = Bank.MIDDLE	#Move to next bank
 					
-				elif state == Bank_State.MIDDLE:
-					if GPIO.input(27) and not middle_bat == Battery_State.CHARGING:
-						gpio_callback(27)
+				elif state == Bank.MIDDLE:
+					if GPIO.input(middle_charging) and not middle_bat == Battery_State.CHARGING:
+						gpio_callback(middle_charging)
 						middle_bat = Battery_State.CHARGING
+						bank_charging(state)
 						
-					elif GPIO.input(22) and not middle_complete:
-						gpio_callback(22)
+					elif GPIO.input(middle_charged) and not middle_complete:
+						gpio_callback(middle_charged)
 						middle_bat = Battery_State.CHARGED
+						bank_charged(state)
 						
-					elif not (GPIO.input(27) or GPIO.input(22))
+					elif not (GPIO.input(middle_charging) or GPIO.input(middle_charged))
 						gui.button_missing(middle_button)
 						middle_bat = Battery_State.NONE
+						bank_nothing(state)
 						
-					state = Bank_State.RIGHT
+					state = Bank.RIGHT
 					
-				elif state == Bank_State.RIGHT:
-					if GPIO.input(18) and not right_bat == Battery_State.CHARGING:
-						gpio_callback(18)
+				elif state == Bank.RIGHT:
+					if GPIO.input(right_charging) and not right_bat == Battery_State.CHARGING:
+						gpio_callback(right_charging)
 						right_bat = Battery_State.CHARGING
+						bank_charging(state)
 						
-					elif GPIO.input(23) and not right_complete:
-						gpio_callback(23)
+					elif GPIO.input(right_charged) and not right_complete:
+						gpio_callback(right_charged)
 						right_bat = Battery_State.CHARGED
+						bank_charged(state)
 						
-					elif not (GPIO.input(18) or GPIO.input(23)):
+					elif not (GPIO.input(right_charging) or GPIO.input(right_charged)):
 						gui.button_missing(right_button)
 						right_bat = Battery_State.NONE
+						bank_nothing(state)
 						
-					state = Bank_State.LEFT
+					state = Bank.LEFT
 					
 			else:		#If timer was interrupted, reset
-				state = Bank_State.LEFT
+				state = Bank.LEFT
 				left_bat = Battery_State.NONE
 				middle_bat = Battery_State.NONE
 				right_bat = Battery_State.NONE
@@ -118,7 +136,7 @@ def run_timer():
 				except queue.Empty:
 					pass	#Do nothing
 					
-			state = Bank_State.LEFT	#Reset
+			state = Bank.LEFT	#Reset
 			left_complete = False
 			middle_complete = False
 			right_complete = False
@@ -126,12 +144,14 @@ def run_timer():
 				left_button = 0
 				middle_button = 4
 				right_button = 8
+				
 
 class USB:	#Handles sending signals through usb to the charger switch
 	ser = serial.Serial("/dev/ttyUSB0",9600,8,"N",1,timeout=5)	#usb location,baud rate, data bits, no parity, stop bit
 	
 	def read(self):
 		return this.ser.readline()
+		
 
 	def switch_on(self,button):
 		output = ""
@@ -145,6 +165,7 @@ class USB:	#Handles sending signals through usb to the charger switch
 			
 		self.ser.write(output.encode('utf-8'))
 		self.ser.flush()
+		
 		
 	def switch_off(self,button):
 		output = ""
@@ -185,6 +206,7 @@ class GUI(tk.Frame):
 		self.grid()				#Makes widget visible
 		self.button_list = []	#Stores all 12 buttons for easy reference
 		self.create_widgets()
+		
 		
 	def create_widgets(self):
 		self.header = tk.Label(self,text="2338 Battery Charger")
@@ -253,6 +275,7 @@ class GUI(tk.Frame):
 		self.right.b2.grid()
 		self.right.b3.grid()
 		
+		
 	def button_click(self,button):	#Turn button purple and switch to charging that bank
 		global left_button, left_complete, middle_button, middle_complete, right_button, right_complete
 		self.button_list[button]["bg"] = "purple"
@@ -275,8 +298,52 @@ class GUI(tk.Frame):
 		usb.switch_on(button)
 		q.put(None)
 		
+	
+	def bank_charging(self,bank):	#Change header to charging
+		if bank == Bank.LEFT:
+			self.left.header.charged["bg"] = "gray"
+			self.left.header.charging["bg"] = "red"
+			
+		elif bank == Bank.Middle:
+			self.middle.header.charged["bg"] = "gray"
+			self.middle.header.charging["bg"] = "red"
+			
+		elif bank == Bank.RIGHT:
+			self.right.header.charged["bg"] = "gray"
+			self.right.header.charging["bg"] = "red"
+			
+			
+	def bank_charged(self,bank):	#Change header to charged
+		if bank == Bank.LEFT:
+			self.left.header.charged["bg"] = "green"
+			self.left.header.charging["bg"] = "gray"
+			
+		elif bank == Bank.Middle:
+			self.middle.header.charged["bg"] = "green"
+			self.middle.header.charging["bg"] = "gray"
+			
+		elif bank == Bank.RIGHT:
+			self.right.header.charged["bg"] = "green"
+			self.right.header.charging["bg"] = "gray"
+			
+			
+	def bank_nothing(self,bank):	#Change header to neither
+		if bank == Bank.LEFT:
+			self.left.header.charged["bg"] = "gray"
+			self.left.header.charging["bg"] = "gray"
+			
+		elif bank == Bank.Middle:
+			self.middle.header.charged["bg"] = "gray"
+			self.middle.header.charging["bg"] = "gray"
+			
+		elif bank == Bank.RIGHT:
+			self.right.header.charged["bg"] = "gray"
+			self.right.header.charging["bg"] = "gray"
+			
+		
 	def button_charging(self,button=0):
 		self.button_list[button]["bg"] = "yellow"
+		
 		
 	def button_switch(self,button=0):
 		usb.switch_off(button)
@@ -289,26 +356,30 @@ class GUI(tk.Frame):
 			
 		elif (button > 7 and button < 11):
 			usb.switch_on(button+1)
+			
 		
 	def button_done(self,button=0):
 		self.button_list[button]["bg"] = "green"
 		self.button_switch(button)
+		
 			
 	def button_missing(self,button=0):
 		self.button_list[button]["bg"] = "gray"
 		self.button_switch(button)
+		
 			
 root = tk.Tk()
 gui = GUI(master=root)
 gui.master.title('2338 Battery Charger')
+
 	
 def gpio_callback(channel):	#Called whenever an LED lights up, parses which LED lit and responds accordingly
 	global left_button, left_complete, middle_button, middle_complete, right_button, right_complete
 	
-	if channel == 24:	#Bank 0 (left bank), charging
+	if channel == left_charging:	#Bank 0 (left bank), charging
 		gui.button_charging(button=left_button)
 		
-	elif channel == 25:	#Bank 0 (left bank), done
+	elif channel == left_charged:	#Bank 0 (left bank), done
 		gui.button_done(button=left_button)
 		
 		if left_button < 3:
@@ -317,10 +388,10 @@ def gpio_callback(channel):	#Called whenever an LED lights up, parses which LED 
 		else:
 			left_complete = True
 			
-	elif channel == 27:	#Bank 1 (middle bank), charging
+	elif channel == middle_charging:	#Bank 1 (middle bank), charging
 		gui.button_charging(button=middle_button)
 		
-	elif channel == 22:	#Bank 1 (middle bank), done
+	elif channel == middle_charged:	#Bank 1 (middle bank), done
 		gui.button_done(button=middle_button)
 		
 		if middle_button < 7:
@@ -329,10 +400,10 @@ def gpio_callback(channel):	#Called whenever an LED lights up, parses which LED 
 		else:
 			middle_complete = True
 			
-	elif channel == 18:	#Bank 2 (right bank), charging
+	elif channel == right_charging:	#Bank 2 (right bank), charging
 		gui.button_charging(button=right_button)
 		
-	elif channel == 23:	#Bank 2 (right bank), done
+	elif channel == right_charged:	#Bank 2 (right bank), done
 		gui.button_done(button=right_button)
 		
 		if right_button < 11:
@@ -340,6 +411,7 @@ def gpio_callback(channel):	#Called whenever an LED lights up, parses which LED 
 			
 		else:
 			right_complete = True
+			
 			
 def run():	
 	usb.switch_off(0)	#Turn off all banks for hard reset
