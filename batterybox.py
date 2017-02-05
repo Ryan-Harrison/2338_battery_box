@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import tkinter as tk
 import serial
 from functools import partial
@@ -87,17 +86,17 @@ def run_timer():
 					if GPIO.input(middle_charging) and not middle_bat == Battery_State.CHARGING:
 						gpio_callback(middle_charging)
 						middle_bat = Battery_State.CHARGING
-						bank_charging(state)
+						gui.bank_charging(state)
 						
 					elif GPIO.input(middle_charged) and not middle_complete:
 						gpio_callback(middle_charged)
 						middle_bat = Battery_State.CHARGED
-						bank_charged(state)
+						gui.bank_charged(state)
 						
 					elif not (GPIO.input(middle_charging) or GPIO.input(middle_charged))
 						gui.button_missing(middle_button)
 						middle_bat = Battery_State.NONE
-						bank_nothing(state)
+						gui.bank_nothing(state)
 						
 					state = Bank.RIGHT
 					
@@ -105,17 +104,17 @@ def run_timer():
 					if GPIO.input(right_charging) and not right_bat == Battery_State.CHARGING:
 						gpio_callback(right_charging)
 						right_bat = Battery_State.CHARGING
-						bank_charging(state)
+						gui.bank_charging(state)
 						
 					elif GPIO.input(right_charged) and not right_complete:
 						gpio_callback(right_charged)
 						right_bat = Battery_State.CHARGED
-						bank_charged(state)
+						gui.bank_charged(state)
 						
 					elif not (GPIO.input(right_charging) or GPIO.input(right_charged)):
 						gui.button_missing(right_button)
 						right_bat = Battery_State.NONE
-						bank_nothing(state)
+						gui.bank_nothing(state)
 						
 					state = Bank.LEFT
 					
@@ -304,7 +303,7 @@ class GUI(tk.Frame):
 			self.left.header.charged["bg"] = "gray"
 			self.left.header.charging["bg"] = "red"
 			
-		elif bank == Bank.Middle:
+		elif bank == Bank.MIDDLE:
 			self.middle.header.charged["bg"] = "gray"
 			self.middle.header.charging["bg"] = "red"
 			
@@ -318,7 +317,7 @@ class GUI(tk.Frame):
 			self.left.header.charged["bg"] = "green"
 			self.left.header.charging["bg"] = "gray"
 			
-		elif bank == Bank.Middle:
+		elif bank == Bank.MIDDLE:
 			self.middle.header.charged["bg"] = "green"
 			self.middle.header.charging["bg"] = "gray"
 			
@@ -332,7 +331,7 @@ class GUI(tk.Frame):
 			self.left.header.charged["bg"] = "gray"
 			self.left.header.charging["bg"] = "gray"
 			
-		elif bank == Bank.Middle:
+		elif bank == Bank.MIDDLE:
 			self.middle.header.charged["bg"] = "gray"
 			self.middle.header.charging["bg"] = "gray"
 			
@@ -365,6 +364,16 @@ class GUI(tk.Frame):
 			
 	def button_missing(self,button=0):
 		self.button_list[button]["bg"] = "gray"
+		
+		if button < 3:
+			left_button += 1
+			
+		elif (button > 3 and button < 7):
+			middle_button += 1
+			
+		elif (button > 7 and button < 11):
+			right_button += 1
+		
 		self.button_switch(button)
 		
 			
