@@ -45,10 +45,10 @@ class Main:
 		cycle = True					#Tells if the timer completed at each state
 		
 		while(True):
-			while(not (left_complete and middle_complete and right_complete)):	#Before the bottom of the banks is reached
+			while(not (self.left_complete and self.middle_complete and self.right_complete)):	#Before the bottom of the banks is reached
 				cycle = True
 				
-				for i in range(15):		#Wait for 15 seconds
+				for i in range(10):		#Wait for 10 seconds
 					try:
 						self.q.get(timeout=1)	#Countdown one second at a time, executes rest of code if something is added to queue
 						cycle = False	#If interrupted, change behavior
@@ -62,7 +62,7 @@ class Main:
 							self.gpio_callback(self.left_charging)
 							left_bat = Battery_State.CHARGING
 							
-						elif GPIO.input(self.left_charged) and not left_complete:	#If fully charged, but isn't the final battery in the bank
+						elif GPIO.input(self.left_charged) and not self.left_complete:	#If fully charged, but isn't the final battery in the bank
 							self.gpio_callback(self.left_charged)
 							left_bat = Battery_State.CHARGED
 							
@@ -79,11 +79,11 @@ class Main:
 							self.gpio_callback(self.middle_charging)
 							middle_bat = Battery_State.CHARGING
 							
-						elif GPIO.input(self.middle_charged) and not middle_complete:
+						elif GPIO.input(self.middle_charged) and not self.middle_complete:
 							self.gpio_callback(self.middle_charged)
 							middle_bat = Battery_State.CHARGED
 							
-						elif not (GPIO.input(self.middle_charging) or GPIO.input(self.middle_charged))
+						elif not (GPIO.input(self.middle_charging) or GPIO.input(self.middle_charged)):
 							gui.button_missing(self.middle_button)
 							middle_bat = Battery_State.NONE
 							gui.bank_nothing(state)
@@ -96,12 +96,12 @@ class Main:
 							self.gpio_callback(self.right_charging)
 							right_bat = Battery_State.CHARGING
 							
-						elif GPIO.input(self.right_charged) and not right_complete:
+						elif GPIO.input(self.right_charged) and not self.right_complete:
 							self.gpio_callback(self.right_charged)
 							right_bat = Battery_State.CHARGED
 							
 						elif not (GPIO.input(self.right_charging) or GPIO.input(self.right_charged)):
-							gui.button_missing(right_button)
+							gui.button_missing(self.right_button)
 							right_bat = Battery_State.NONE
 							gui.bank_nothing(state)
 							self.increment_button(Bank.RIGHT)
@@ -117,7 +117,8 @@ class Main:
 			while(self.left_complete and self.middle_complete and self.right_complete):	#When the bottom of the banks is reached
 				cycle = True
 				
-				for i in range(600):	#Wait for 10 minutes
+				#for i in range(600):	#Wait for 10 minutes
+				for i in range(15):
 					try:
 						self.q.get(timeout=1)
 						cycle = False
@@ -128,7 +129,8 @@ class Main:
 				state = Bank.LEFT		#Reset
 				self.reset_complete()
 				if cycle:				#If no button was pushed, start again at the top
-					reset_buttons()
+					self.reset_buttons()
+				usb.reset()
 					
 					
 	def gpio_callback(self,channel):	#Called whenever an LED lights up, parses which LED lit and responds accordingly		
@@ -167,29 +169,35 @@ class Main:
 		
 		
 	def reset_buttons(self):
-		self.left_button = left_beginning
-		self.middle_button = middle_beginning
-		self.right_button = right_beginning
+		self.left_button = self.left_beginning
+		self.middle_button = self.middle_beginning
+		self.right_button = self.right_beginning
 				
 	
 	def increment_button(self,bank):
 		if bank == Bank.LEFT:
 			if self.left_button < 3:
+				usb.switch_off(self.left_button)
 				self.left_button += 1
+				usb.switch_on(self.left_button)
 			
 			else:
 				self.left_complete = True
 			
 		elif bank == Bank.MIDDLE:
 			if self.middle_button < 7:
+				usb.switch_off(self.middle_button)
 				self.middle_button += 1
+				usb.switch_on(self.middle_button)
 				
 			else:
 				self.middle_complete = True
 			
 		elif bank == Bank.RIGHT:
 			if self.right_button < 11:
+				usb.switch_off(self.right_button)
 				self.right_button += 1
+				usb.switch_on(self.right_button)
 				
 			else:
 				self.right_complete = True
@@ -215,23 +223,8 @@ class Main:
 		self.q.put(None)
 				
 	
-	def run(self):	
-		usb.switch_off(0)				#Turn off all banks for hard reset
-		usb.switch_off(1)
-		usb.switch_off(2)
-		usb.switch_off(3)
-		usb.switch_off(4)
-		usb.switch_off(5)
-		usb.switch_off(6)
-		usb.switch_off(7)
-		usb.switch_off(8)
-		usb.switch_off(9)
-		usb.switch_off(10)
-		usb.switch_off(11)
-		
-		usb.switch_on(left_button)		#Start from the top
-		usb.switch_on(middle_button)
-		usb.switch_on(right_button)
+	def run(self):
+		usb.reset()
 		
 		th = threading.Thread(target=self.run_timer)
 		th.start()
@@ -285,6 +278,25 @@ class USB:								#Handles sending signals through usb to the charger switch
 			
 		self.ser.write(output.encode('utf-8'))
 		self.ser.flush()
+
+		
+	def reset(self):
+		self.switch_off(0)				#Turn off all banks for hard reset
+		self.switch_off(1)
+		self.switch_off(2)
+		self.switch_off(3)
+		self.switch_off(4)
+		self.switch_off(5)
+		self.switch_off(6)
+		self.switch_off(7)
+		self.switch_off(8)
+		self.switch_off(9)
+		self.switch_off(10)
+		self.switch_off(11)
+		
+		self.switch_on(main.left_button)	#Start from the top
+		self.switch_on(main.middle_button)
+		self.switch_on(main.right_button)
 		
 
 class GUI(tk.Frame):
