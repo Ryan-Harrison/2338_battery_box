@@ -18,9 +18,10 @@ class Battery_State(Enum):				#States of battery charging
 	CHARGING = 1
 	CHARGED = 2
 	
-class USB_Command(on_in,button_in):		#on: boolean, determins if the relay is turning on or off; button: int, location of relay
-	on = on_in
-	button = button_in
+class USB_Command:		#on: boolean, determins if the relay is turning on or off; button: int, location of relay
+	def __init__(self,on_in,button_in):
+		self.on = on_in
+		self.button = button_in
 
 class Main:
 	left_charging = 24					#GPIO address, change where necessary
