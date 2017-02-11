@@ -54,6 +54,8 @@ class Main:
 	usbq = queue.Queue()				#Add USB add commands for staggered execution
 	
 	stop = False						#Stops loops
+	run_stopped = False					#Determines if the run_timer has stopped
+	usb_stopped = False					#Determines if the usb_timer has stopped
 	
 	def run_timer(self):
 		state = Bank.LEFT				#Start at the left bank
@@ -137,7 +139,6 @@ class Main:
 					
 			while(self.left_complete and self.middle_complete and self.right_complete and not self.stop):#When the bottom of the banks is reached
 				cycle = True
-				
 				#for i in range(600):	#Wait for 10 minutes
 				for i in range(15):		#Only for testing
 					if not self.stop:
@@ -150,12 +151,16 @@ class Main:
 							
 					else:
 						break
+
 				if not self.stop:	
 					state = Bank.LEFT	#Reset
 					self.reset_complete()
 					if cycle:			#If no button was pushed, start again at the top
 						self.reset_buttons()
 					usb.reset()
+
+		if self.stop:
+			run_stopped = True
 
 	def usb_timer(self):				#Staggers and calls commands to the usb relay so as not to overload it
 		next_item = None				#Holds relay position and command to turn on or off
@@ -170,6 +175,9 @@ class Main:
 			except queue.Empty:
 				pass					#Do nothing
 				
+		if self.stop:
+			usb_stopped = True
+
 	def usbq_add(self,on,button):
 		command = USB_Command(on,button)
 		usbq.add(command)
@@ -261,6 +269,8 @@ class Main:
 		
 	def on_closing(self):
 		self.stop = True
+		while(not (run_stopped and usb_stopped)):
+			root.destroy()
 	
 	def run(self):
 		usb.reset()
