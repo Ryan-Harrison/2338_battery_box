@@ -1,11 +1,12 @@
-import tkinter as tk
-import serial
-from functools import partial
-import RPi.GPIO as GPIO
-import threading
-import queue
 from enum import Enum
+from functools import partial
+import queue
+import RPi.GPIO as GPIO
+import serial
+import sys
+import threading
 import time
+import tkinter as tk
 
 class Bank(Enum):						#States of checking banks
 	NONE = 0
@@ -57,6 +58,18 @@ class Main:
 	stop = False						#Stops loops
 	run_stopped = False					#Determines if the run_timer has stopped
 	usb_stopped = False					#Determines if the usb_timer has stopped
+	
+	complete_reset_time = 600			#Reset time defaults to 10 minutes
+	if len(sys.argv) == 2:				#Allows user defined reset time in seconds
+		try:
+			argt = int(sys.argv[1])
+			if argt >= 0:
+				complete_reset_time = argt
+		except ValueError:
+			print('Only accepts integer argument')
+	elif len(sys.argv) > 2:
+		print('Only accepts one integer argument')
+	print(complete_reset_time)
 	
 	def run_timer(self):
 		state = Bank.LEFT				#Start at the left bank
@@ -140,8 +153,7 @@ class Main:
 					
 			while(self.left_complete and self.middle_complete and self.right_complete and not self.stop):#When the bottom of the banks is reached
 				cycle = True
-				for i in range(600):	#Wait for 10 minutes
-				#for i in range(15):		#Only for testing
+				for i in range(self.complete_reset_time):	#Default: Wait for 10 minutes, otherwise user defined
 					if not self.stop:
 						try:
 							self.q.get(timeout=1)
@@ -328,72 +340,78 @@ class GUI(tk.Frame):
 		super().__init__(master)
 		self.grid()						#Makes widget visible
 		self.button_list = []			#Stores all 12 buttons for easy reference
-		self.last_button = 12
+		self.last_button = 12			#12 indicates no selected button
 		self.last_color = 'light gray'
 		self.create_widgets()
 		
 	def create_widgets(self):
+		#self.background_image = tk.PhotoImage(file='/home/pi/Desktop/batterybox/photo.gif')
+		#self.background_label = tk.Label(self,image=self.background_image)
+		#self.background_label.place(x=0,y=0,relwidth=1,relheight=1)
+		
 		self.header = tk.Label(self,text='2338 Battery Charger')
 		self.header.grid(column=1)
 		
-		self.left = tk.Frame(self)		#Left battery bank
+		self.left = tk.Frame(self,padx='10p')		#Left battery bank
 		self.left.header = tk.Frame(self.left)
 		self.left.header.charging = tk.Label(self.left.header,bg='light gray',text='C0 Charging')
 		self.left.header.charged = tk.Label(self.left.header,bg='light gray',text='C0 Charged')
-		self.left.b0 = tk.Button(self.left,text='C00',bg='light gray',command=partial(self.button_click,0))	#Battery Left 1
+		self.left.b0 = tk.Button(self.left,text='C00',bg='light gray',padx='30p',pady='20p',command=partial(self.button_click,0))	#Battery Left 1
 		self.button_list.append(self.left.b0)
-		self.left.b1 = tk.Button(self.left,text='C01',bg='light gray',command=partial(self.button_click,1))	#Battery Left 2
+		self.left.b1 = tk.Button(self.left,text='C01',bg='light gray',padx='30p',pady='20p',command=partial(self.button_click,1))	#Battery Left 2
 		self.button_list.append(self.left.b1)
-		self.left.b2 = tk.Button(self.left,text='C02',bg='light gray',command=partial(self.button_click,2))	#Battery Left 3
+		self.left.b2 = tk.Button(self.left,text='C02',bg='light gray',padx='30p',pady='20p',command=partial(self.button_click,2))	#Battery Left 3
 		self.button_list.append(self.left.b2)
-		self.left.b3 = tk.Button(self.left,text='C03',bg='light gray',command=partial(self.button_click,3))	#Battery Left 4
+		self.left.b3 = tk.Button(self.left,text='C03',bg='light gray',padx='30p',pady='20p',command=partial(self.button_click,3))	#Battery Left 4
 		self.button_list.append(self.left.b3)
 		self.left.grid()
 		self.left.header.grid()
 		self.left.header.charging.grid()
-		self.left.header.charged.grid(column=1, row=0)
+		self.left.header.charged.grid(column=1,row=0)
 		self.left.b0.grid()
 		self.left.b1.grid()
 		self.left.b2.grid()
 		self.left.b3.grid()
 		
-		self.middle = tk.Frame(self)	#Middle battery bank
+		self.middle = tk.Frame(self,padx='10p')	#Middle battery bank
 		self.middle.header = tk.Frame(self.middle)
 		self.middle.header.charging = tk.Label(self.middle.header,bg='light gray',text='C1 Charging')
 		self.middle.header.charged = tk.Label(self.middle.header,bg='light gray',text='C1 Charged')
-		self.middle.b0 = tk.Button(self.middle,text='C10',bg='light gray',command=partial(self.button_click,4))	#Battery Middle 1
+		self.middle.b0 = tk.Button(self.middle,text='C10',bg='light gray',padx='30p',pady='20p',command=partial(self.button_click,4))	#Battery Middle 1
 		self.button_list.append(self.middle.b0)
-		self.middle.b1 = tk.Button(self.middle,text='C11',bg='light gray',command=partial(self.button_click,5))	#Battery Middle 2
+		self.middle.b1 = tk.Button(self.middle,text='C11',bg='light gray',padx='30p',pady='20p',command=partial(self.button_click,5))	#Battery Middle 2
 		self.button_list.append(self.middle.b1)
-		self.middle.b2 = tk.Button(self.middle,text='C12',bg='light gray',command=partial(self.button_click,6))	#Battery Middle 3
+		self.middle.b2 = tk.Button(self.middle,text='C12',bg='light gray',padx='30p',pady='20p',command=partial(self.button_click,6))	#Battery Middle 3
 		self.button_list.append(self.middle.b2)
-		self.middle.b3 = tk.Button(self.middle,text='C13',bg='light gray',command=partial(self.button_click,7))	#Battery Middle 4
+		self.middle.b3 = tk.Button(self.middle,text='C13',bg='light gray',padx='30p',pady='20p',command=partial(self.button_click,7))	#Battery Middle 4
 		self.button_list.append(self.middle.b3)
-		self.middle.grid(column=1, row=1)
+		self.middle.logo = tk.PhotoImage(file='/home/pi/Desktop/batterybox/photo.gif')
+		self.middle.grid(column=1,row=1)
 		self.middle.header.grid()
 		self.middle.header.charging.grid()
-		self.middle.header.charged.grid(column=1, row=0)
+		self.middle.header.charged.grid(column=1,row=0)
 		self.middle.b0.grid()
 		self.middle.b1.grid()
 		self.middle.b2.grid()
 		self.middle.b3.grid()
+		tk.Label(image=self.middle.logo).grid()
 		
-		self.right = tk.Frame(self)		#Right battery bank
+		self.right = tk.Frame(self,padx='10p')	#Right battery bank
 		self.right.header = tk.Frame(self.right)
 		self.right.header.charging = tk.Label(self.right.header,bg='light gray',text='C2 Charging')
 		self.right.header.charged = tk.Label(self.right.header,bg='light gray',text='C2 Charged')
-		self.right.b0 = tk.Button(self.right,text='C20',bg='light gray',command=partial(self.button_click,8))	#Battery Right 1
+		self.right.b0 = tk.Button(self.right,text='C20',bg='light gray',padx='30p',pady='20p',command=partial(self.button_click,8))	#Battery Right 1
 		self.button_list.append(self.right.b0)
-		self.right.b1 = tk.Button(self.right,text='C21',bg='light gray',command=partial(self.button_click,9))	#Battery Right 2
+		self.right.b1 = tk.Button(self.right,text='C21',bg='light gray',padx='30p',pady='20p',command=partial(self.button_click,9))	#Battery Right 2
 		self.button_list.append(self.right.b1)
-		self.right.b2 = tk.Button(self.right,text='C22',bg='light gray',command=partial(self.button_click,10))	#Battery Right 3
+		self.right.b2 = tk.Button(self.right,text='C22',bg='light gray',padx='30p',pady='20p',command=partial(self.button_click,10))#Battery Right 3
 		self.button_list.append(self.right.b2)
-		self.right.b3 = tk.Button(self.right,text='C23',bg='light gray',command=partial(self.button_click,11))	#Battery Right 4
+		self.right.b3 = tk.Button(self.right,text='C23',bg='light gray',padx='30p',pady='20p',command=partial(self.button_click,11))#Battery Right 4
 		self.button_list.append(self.right.b3)
-		self.right.grid(column=2, row=1)
+		self.right.grid(column=2,row=1)
 		self.right.header.grid()
 		self.right.header.charging.grid()
-		self.right.header.charged.grid(column=1, row=0)
+		self.right.header.charged.grid(column=1,row=0)
 		self.right.b0.grid()
 		self.right.b1.grid()
 		self.right.b2.grid()
@@ -413,7 +431,22 @@ class GUI(tk.Frame):
 			
 		else:							#Right buttons
 			main.set_button(Bank.RIGHT,button)
-	
+		
+	def button_charging(self,button):
+		self.button_list[button]['bg'] = 'yellow'
+		if button == self.last_button:
+			self.last_button = 12		#Reset to 12 because no button is selected anymore
+		
+	def button_done(self,button):
+		self.button_list[button]['bg'] = 'green'
+		if button == self.last_button:
+			self.last_button = 12		#Reset to 12 because no button is selected anymore
+			
+	def button_missing(self,button):
+		self.button_list[button]['bg'] = 'light gray'
+		if button == self.last_button:
+			self.last_button = 12		#Reset to 12 because no button is selected anymore
+		
 	def bank_charging(self,bank):		#Change header to charging
 		if bank == Bank.LEFT:
 			self.left.header.charged['bg'] = 'light gray'
@@ -452,15 +485,6 @@ class GUI(tk.Frame):
 		elif bank == Bank.RIGHT:
 			self.right.header.charged['bg'] = 'light gray'
 			self.right.header.charging['bg'] = 'light gray'
-		
-	def button_charging(self,button=0):
-		self.button_list[button]['bg'] = 'yellow'	
-		
-	def button_done(self,button=0):
-		self.button_list[button]['bg'] = 'green'
-			
-	def button_missing(self,button=0):
-		self.button_list[button]['bg'] = 'light gray'
 
 usb = USB()								#Handles sending signals through usb to the charger switch		
 main = Main()		

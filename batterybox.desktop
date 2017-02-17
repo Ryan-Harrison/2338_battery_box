@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Battery Box
+Comment=FRC team 2338 automated battery box
+Exec=sudo /usr/bin/python3 /home/pi/Desktop/batterybox/batterybox.py
+Icon=/usr/share/icons/gnome/48x48/status/battery-good-charging.png
+Terminal=true
+MultipleArgs=false
+Type=Application
+Categories=Utility
+StartupNotify=true
