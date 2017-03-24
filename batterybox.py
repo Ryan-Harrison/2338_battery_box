@@ -59,7 +59,7 @@ class Main:
 	run_stopped = False					#Determines if the run_timer has stopped
 	usb_stopped = False					#Determines if the usb_timer has stopped
 	
-	cycle_wait_time = 10				#How long to wait before checking the next battery
+	cycle_wait_time = 5					#How long to wait before checking the next battery
 	complete_reset_time = 600			#Reset time defaults to 10 minutes
 	if len(sys.argv) == 2:				#Allows user defined reset time in seconds
 		try:
@@ -82,7 +82,7 @@ class Main:
 		while(not self.stop):
 			while(not ((self.left_complete and self.middle_complete and self.right_complete) or self.stop)):	#Before the bottom of the banks is reached
 				cycle = True
-				for i in range(cycle_wait_time):	#Wait for 5 seconds
+				for i in range(self.cycle_wait_time):	#Wait for 5 seconds
 					if not self.stop:
 						try:
 							self.q.get(timeout=1)	#Countdown one second at a time, executes rest of code if something is added to queue
